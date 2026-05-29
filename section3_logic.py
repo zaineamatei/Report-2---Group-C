@@ -10,14 +10,14 @@ def compute_model_evaluation_data(series, model_result, max_lag=12):
     (1) What it does: Computes the empirical ACF of the data, the exact theoretical ACF 
         implied by the fitted model coefficients, and the ACF of the model's residuals.
         Performs a Portmanteau test for residual independence and evaluates
-        residual normality at the 5% level using the PPCC test.
+        residual normality using the PPCC score.
     (2) Input: 
         - series (pd.Series): The zero-mean corrected time series (z).
         - model_result (ARIMAResults): The fitted statsmodels ARIMA object.
         - max_lag (int): Maximum number of lags to evaluate (default 12).
     (3) Outputs: dict containing arrays for empirical ACF, theoretical ACF, 
         residual ACF, the mathematical 95% white noise confidence threshold for residuals,
-        the Portmanteau p-value, the PPCC score, and the PPCC critical value.
+        the Portmanteau p-value, the PPCC score, and the raw residuals.
     """
     valid_data = series.dropna()
     
@@ -56,16 +56,13 @@ def compute_model_evaluation_data(series, model_result, max_lag=12):
     # Extract the p-value at the final cumulative lag horizon
     lb_pvalue = lb_df["lb_pvalue"].iloc[-1]
     
-    # 6. PPCC (Probability Plot Correlation Coefficient) Test
+    # 6. PPCC (Probability Plot Correlation Coefficient) Computation
     sorted_resid = np.sort(residuals)
     prob_positions = (np.arange(1, n_resid + 1) - 0.375) / (n_resid + 0.25)
     theoretical_quantiles = stats.norm.ppf(prob_positions)
     
     # Calculate the empirical PPCC score (r)
     ppcc_score, _ = stats.pearsonr(sorted_resid, theoretical_quantiles)
-    
-    # Approximate 5% Critical Value for PPCC Normal Test 
-    ppcc_critical_value = 1.0 - (1.1325 / (n_resid ** 0.655))
     
     return {
         "lags": np.arange(max_lag + 1),
@@ -75,6 +72,5 @@ def compute_model_evaluation_data(series, model_result, max_lag=12):
         "conf_bound_resid": conf_bound_resid,
         "lb_pvalue": lb_pvalue,
         "ppcc_score": ppcc_score,
-        "ppcc_critical": ppcc_critical_value,
         "residuals": residuals
     }
